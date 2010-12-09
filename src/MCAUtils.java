@@ -14,14 +14,8 @@ public class MCAUtils extends Plugin {
 
 	private Timer SaveAllTicker;
 	private long SaveAllTickInterval = 3600000;
-
-	PluginRegisteredListener walkListener;
-	PluginRegisteredListener blockcreateListener;
-	PluginRegisteredListener commandListener;
-
-	walkListener listener_walk = new walkListener();
-	blockcreateListener listener_blockcreate = new blockcreateListener();
-	commandListener listener_command = new commandListener();
+	
+	private ArrayList<PluginRegisteredListener> listeners = new ArrayList<PluginRegisteredListener>();
 	
     public void enable() {
 		log.info("[MCAUtils] Mod Enabled.");
@@ -31,98 +25,41 @@ public class MCAUtils extends Plugin {
     }
 
     public void disable() {
+    	
+		PluginLoader loader = etc.getLoader();
+		for (PluginRegisteredListener rl : listeners)
+			loader.removeListener(rl);
+		listeners.clear();
+    	
 		log.info("[MCAUtils] Mod Disabled");
         if (SaveAllTicker != null) {
             SaveAllTicker.cancel();
         }
-        etc.getLoader().removeListener(walkListener);
-        etc.getLoader().removeListener(blockcreateListener);
-        etc.getLoader().removeListener(commandListener);
     }
     
     public void initialize() {
-    	blockcreateListener = etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener_blockcreate, this, PluginListener.Priority.MEDIUM);
-    	walkListener = etc.getLoader().addListener(PluginLoader.Hook.PLAYER_MOVE, listener_walk, this, PluginListener.Priority.MEDIUM);
-    	commandListener = etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener_command, this, PluginListener.Priority.MEDIUM);
+    	Listener l = new Listener();
+
+        listeners.add(etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, l, this, PluginListener.Priority.LOW));
+        listeners.add(etc.getLoader().addListener(PluginLoader.Hook.COMMAND, l, this, PluginListener.Priority.LOW));
+        listeners.add(etc.getLoader().addListener(PluginLoader.Hook.SERVERCOMMAND, l, this, PluginListener.Priority.LOW));
     }
     
-	private void loadProperties(){
-		PropertiesFile properties = new PropertiesFile("MCAUtilsPlugin.properties");
-		try {
-			SaveAllTickInterval = properties.getLong("saveallintervalinminutes", 60) * 60000;
-			String[] stringdisalloweditems = properties.getString("disalloweditems", "19,66,328,342,343").split(",");
-       		disalloweditems = new int[stringdisalloweditems.length];
-       		for (int i=0;i<stringdisalloweditems.length;i++) {
-       			try {
-       				disalloweditems[i] = Integer.parseInt(stringdisalloweditems[i]);
-       			} catch (NumberFormatException nfe) {
-       				disalloweditems[i] = -2;
-       			}
-       		}
-        } catch (Exception e) {
-            log.log(Level.SEVERE, "Exception while reading from MCAUtilsPlugin.properties", e);
-        }
-        // TODO : non-existant file
-	}
-    /*
-    
-    worser
-    
-    private void loadprops()
-    {
-        props = new Properties();
-       	props.setProperty("disalloweditems", "19,66,328,342,343");
-       	props.setProperty("saveallintervalinminutes", "60");
-        
-        try {
-             props.load(new FileInputStream("MCAUtils.properties"));
-       	}
-        catch(IOException e) {
-             e.printStackTrace();
-        }
-        
-        if(props.getProperty("disalloweditems") != "") {
-       		String[] stringdisalloweditems = props.getProperty("disalloweditems").split(",");
-       		disalloweditems = new int[stringdisalloweditems.length];
-       		for (int i=0;i<stringdisalloweditems.length;i++) {
-       			disalloweditems[i] = Integer.parseInt(stringdisalloweditems[i]);
-       		}
-        }
-        
-        if(props.getProperty("saveallintervalinminutes") != "") {
-        	try {
-        		SaveAllTickInterval = Long.parseLong(props.getProperty("saveallintervalinminutes").trim()) * 60000;
-        	} catch (NumberFormatException nfe) {
-        		log.info(props.getProperty("saveallintervalinminutes") + " is not a valid time in minutes");
-        	}
-        }
-        
-		try {
-			OutputStream propOut = new FileOutputStream(new File("MCAUtils.properties"));
-        	props.store(propOut, "Properties for the MCAUtils plugin");
-		}
-		catch(IOException e) {
-             e.printStackTrace();
-        }
-        return;
-    }*/
-    
-    private class SaveAllTickerTask extends TimerTask {
-        public void run() {
-        	log.info("MCAUtils is calling a save-all");
-            server.useConsoleCommand("save-all");
-        }
-    }
-    
-    public class walkListener extends PluginListener {
-		public void onPlayerMove(Player player, Location from, Location to) {
-			if(player.getY()<-300) {
-				player.setY(300);
-			}
-		}
-    }
-    public class commandListener extends PluginListener
-    {
+    private class Listener extends PluginListener {
+    	
+    	public boolean onConsoleCommand(java.lang.String[] split) {
+    		log.info("hook called");
+    		
+    		if(split[0].equalsIgnoreCase("ping")) {
+    			log.info("pong");
+    			return true;
+    		} else if(split[0].equalsIgnoreCase("pong")) {
+    			log.info("ping");
+    			return true;
+    		}
+    		return false;
+    	}
+    	
     	public boolean onCommand(Player player, java.lang.String[] split) {
     		
     		if(split[0].equalsIgnoreCase("/tpos") && player.canUseCommand("/tpos")) {
@@ -143,15 +80,17 @@ public class MCAUtils extends Plugin {
     			
     			player.sendMessage("Incorrect arguments");
     			return true;
+    		} else if(split[0].equalsIgnoreCase("/ping")) {
+    			player.sendMessage(Colors.Rose + "Pong!");
+    			return true;
+    		} else if(split[0].equalsIgnoreCase("/pong")) {
+    			player.sendMessage(Colors.Rose + "Ping!");
+    			return true;
     		}
     		
     		return false;
     	}
-    }
-    
-    
-    public class blockcreateListener extends PluginListener
-    {
+    	
     	public boolean onBlockCreate(Player player, Block blockPlaced, Block blockClicked, int itemInHand) {
     		//block item if disallowed
     		/*if(disalloweditems.length>0 && !player.canUseCommand("/useblockeditems")) {
@@ -203,4 +142,29 @@ public class MCAUtils extends Plugin {
 		}
     }
     
+	private void loadProperties(){
+		PropertiesFile properties = new PropertiesFile("MCAUtilsPlugin.properties");
+		try {
+			SaveAllTickInterval = properties.getLong("saveallintervalinminutes", 60) * 60000;
+			String[] stringdisalloweditems = properties.getString("disalloweditems", "19,66,328,342,343").split(",");
+       		disalloweditems = new int[stringdisalloweditems.length];
+       		for (int i=0;i<stringdisalloweditems.length;i++) {
+       			try {
+       				disalloweditems[i] = Integer.parseInt(stringdisalloweditems[i]);
+       			} catch (NumberFormatException nfe) {
+       				disalloweditems[i] = -2;
+       			}
+       		}
+        } catch (Exception e) {
+            log.log(Level.SEVERE, "Exception while reading from MCAUtilsPlugin.properties", e);
+        }
+        // TODO : non-existant file
+	}
+    
+    private class SaveAllTickerTask extends TimerTask {
+        public void run() {
+        	log.info("MCAUtils is calling a save-all");
+            server.useConsoleCommand("save-all");
+        }
+    }
 }
